@@ -6,7 +6,16 @@ st.set_page_config(page_title="Gestor Pro TiDB", layout="wide")
 
 # --- CONEXÃO ---
 conn = st.connection("tidb", type="sql")
-usuario_atual = st.user.email if st.user.email else "Admin_Local"
+# --- CAPTURA DE USUÁRIO (Compatível com Local e Cloud) ---
+try:
+    # Tenta acessar o e-mail. No Cloud com login ativo, isso funciona.
+    if st.user.get("email"):
+        usuario_atual = st.user.email
+    else:
+        usuario_atual = "Usuario_Local"
+except Exception:
+    # Se der qualquer erro (como no ambiente local), define um padrão
+    usuario_atual = st.user.get("email", "Admin_Local")
 
 # --- FUNÇÕES DE PERSISTÊNCIA ---
 def load_data():
