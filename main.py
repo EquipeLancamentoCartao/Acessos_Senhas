@@ -5,6 +5,12 @@ from sqlalchemy import text
 import io
 # urllib.parse não é mais necessário se usarmos a conexão automática
 
+# TESTE DE DIAGNÓSTICO
+if st.checkbox("Debug: Verificar Credenciais"):
+    st.write(f"Usuário no Secret: {st.secrets['connections']['tidb']['username']}")
+    st.write(f"Senha tem {len(st.secrets['connections']['tidb']['password'])} caracteres")
+    # Isso vai nos dizer se ele está lendo o arquivo certo
+
 st.set_page_config(page_title="Gestor Pro TiDB", layout="wide")
 
 # --- CONEXÃO AUTOMÁTICA ---
