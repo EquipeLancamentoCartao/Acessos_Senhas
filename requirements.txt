@@ -4,4 +4,3 @@ sqlalchemy
 pymysql
 cryptography
 openpyxl
-urllib.parse
