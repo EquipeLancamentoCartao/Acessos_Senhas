@@ -24,7 +24,7 @@ conn = st.connection(
 )
 
 # Busca a Senha Mestre do painel nos secrets
-SENHA_MESTRE = st.secrets["connections"]["tidb"]["master_password"]
+SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 
 # --- USUÁRIO ---
 try:
