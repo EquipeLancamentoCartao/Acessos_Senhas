@@ -1,9 +1,5 @@
 import streamlit as st
 # TESTE DE DIAGNÓSTICO
-if st.checkbox("Debug: Verificar Credenciais"):
-    st.write(f"Usuário no Secret: {st.secrets['connections']['tidb']['username']}")
-    st.write(f"Senha tem {len(st.secrets['connections']['tidb']['password'])} caracteres")
-    # Isso vai nos dizer se ele está lendo o arquivo certo e se a senha tem o tamanho esperado (normalmente 16+ caracteres para senhas geradas automaticamente)
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import text
