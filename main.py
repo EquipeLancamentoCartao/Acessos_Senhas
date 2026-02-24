@@ -1,120 +1,226 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-
+from sqlalchemy import text
+import urllib.parse
+import io
 st.set_page_config(page_title="Gestor Pro TiDB", layout="wide")
 
-# --- CONEXÃO ---
-conn = st.connection("tidb", type="sql")
-# --- CAPTURA DE USUÁRIO (Compatível com Local e Cloud) ---
+# Busca a senha do banco nos secrets
 try:
-    # Tenta acessar o e-mail. No Cloud com login ativo, isso funciona.
-    if st.user.get("email"):
-        usuario_atual = st.user.email
-    else:
-        usuario_atual = "Usuario_Local"
-except Exception:
-    # Se der qualquer erro (como no ambiente local), define um padrão
-    usuario_atual = st.user.get("email", "Admin_Local")
+    senha_pura = st.secrets["connections"]["tidb"]["password"]
+except KeyError:
+    st.error("Erro: Senha do banco não encontrada no secrets.toml")
+    st.stop()
 
-# --- FUNÇÕES DE PERSISTÊNCIA ---
+senha_escrita = urllib.parse.quote_plus(senha_pura)
+
+# Conexão usando a senha recuperada
+conn = st.connection(
+    "tidb",
+    type="sql",
+    url=f"mysql+pymysql://3ubwWEYSthHphv7.root:{senha_escrita}@gateway01.eu-central-1.prod.aws.tidbcloud.com:4000/test",
+    connect_args={"ssl": {"fake_flag_to_enable_tls": True}}
+)
+
+# Busca a Senha Mestre do painel nos secrets
+SENHA_MESTRE = st.secrets["connections"]["tidb"]["master_password"]
+
+# --- USUÁRIO ---
+try:
+    usuario_atual = st.user.get("email", "Admin_Local")
+except:
+    usuario_atual = "Admin_Local"
+
+# --- FUNÇÕES ---
 def load_data():
-    # Buscamos sempre do banco. O cache é limpo manualmente no upload/edição.
-    return conn.query("SELECT * FROM acessos", ttl=0)
+    # Carrega e garante que as colunas do DataFrame sejam sempre minúsculas
+    df = conn.query("SELECT * FROM acessos", ttl=0)
+    # df.columns = [c.lower() for c in df.columns]
+    return df
 
 def registrar_log(evento, detalhes):
     with conn.session as session:
         session.execute(
-            "INSERT INTO logs_alteracao (evento, usuario_executor, detalhes) VALUES (:ev, :us, :det)",
+            text("INSERT INTO logs_alteracao (evento, usuario_executor, detalhes) VALUES (:ev, :us, :det)"),
             {"ev": evento, "us": usuario_atual, "det": detalhes}
         )
         session.commit()
 
+def save_upload(df_upload, user):
+    # Padroniza nomes das colunas da planilha para minúsculo para evitar erro de chave
+    # df_upload.columns = [c.lower() for c in df_upload.columns]
+    
+    with conn.session as session:
+        session.execute(text("TRUNCATE TABLE acessos;"))
+        agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        for _, row in df_upload.iterrows():
+            query = text("""
+                INSERT INTO acessos (Portal, Convenio, Consignataria, Acesso, Link, Senha, 
+                                   `Alterado por`, `Horario da Alt.`, `Dono do Acesso`)
+                VALUES (:p, :c, :con, :ace, :link, :sen, :alt, :hor, :dono)
+            """)
+            session.execute(query, {
+                "p": row.get('Portal'), "c": row.get('Convenio'), "con": row.get('Consignataria'),
+                "ace": row.get('Acesso'), "link": row.get('Link'), "sen": row.get('Senha'), 
+                "alt": user, "hor": agora, "dono": row.get('Dono do Acesso')
+            })
+        session.commit()
+    registrar_log("Upload Geral", f"Planilha com {len(df_upload)} linhas.")
+    st.cache_data.clear()
+
 def salvar_edicoes_diretas(df_editado, df_original):
-    # Identifica o que mudou comparando o dataframe editado com o original
-    # Para simplificar, vamos atualizar os registros que foram alterados
     with conn.session as session:
         agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         for i, row in df_editado.iterrows():
-            # Verifica se a linha atual é diferente da original
             if not row.equals(df_original.iloc[i]):
-                query = """
-                    UPDATE acessos SET 
-                    portal=:p, convenio=:c, consignataria=:con, acesso=:ace, 
-                    senha=:sen, alterado_por=:alt, horario_alt=:hor, dono_acesso=:dono
-                    WHERE id=:id
-                """
-                session.execute(query, {
-                    "p": row['portal'], "c": row['convenio'], "con": row['consignataria'],
-                    "ace": row['acesso'], "sen": row['senha'], "alt": usuario_atual, 
-                    "hor": agora, "dono": row['dono_acesso'], "id": row['id']
-                })
+                # SEGURANÇA: Se a senha for asteriscos, não atualizamos o campo senha no banco!
+                if row['Senha'] == "********":
+                    query = text("""
+                        UPDATE acessos SET 
+                        Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
+                        `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
+                        WHERE id=:id
+                    """)
+                    params = {
+                        "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
+                        "link": row['Link'], "ace": row['Acesso'], "alt": usuario_atual, 
+                        "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
+                    }
+                else:
+                    query = text("""
+                        UPDATE acessos SET 
+                        Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
+                        Senha=:sen, `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
+                        WHERE id=:id
+                    """)
+                    params = {
+                        "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
+                        "link": row['Link'], "ace": row['Acesso'], "sen": row['Senha'], 
+                        "alt": usuario_atual, "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
+                    }
+                session.execute(query, params)
         session.commit()
-    registrar_log("Edição Direta", "Alteração manual de células na tabela")
+    registrar_log("Edição Direta", "Alteração manual via tabela.")
     st.cache_data.clear()
     st.rerun()
 
 # --- SIDEBAR ---
-st.sidebar.header("🔐 Controle de Acesso")
+st.sidebar.header("🔐 Controle")
 senha_view = st.sidebar.text_input("Senha Master", type="password")
-SENHA_MESTRE = "282723" # Use st.secrets em produção
-
+SENHA_MESTRE = "282723"
 mostrar_senhas = st.sidebar.toggle("👁️ Revelar Senhas", value=False)
 
-
-st.sidebar.divider()
-st.sidebar.subheader("Upload de Planilha")
-uploaded_file = st.sidebar.file_uploader("Substituir base de dados", type=['csv', 'xlsx'])
-
+uploaded_file = st.sidebar.file_uploader("Substituir base", type=['csv', 'xlsx'])
 if uploaded_file and st.sidebar.button("⚠️ Sobrescrever Banco"):
     df_new = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-    # Lógica de salvar (Truncate + Insert) como vimos antes...
-    # [Inserir aqui a função save_upload anterior]
-    registrar_log("Upload Geral", f"Substituição total: {len(df_new)} linhas")
-    st.cache_data.clear()
+    save_upload(df_new, usuario_atual)
+    st.sidebar.success("Atualizado!")
+
+st.sidebar.divider()
+
+# 3. Filtros Dinâmicos
+st.sidebar.subheader("Filtros")
+df_raw = load_data()
+
+# Criando dicionário para armazenar filtros
+filtros = {}
+for col in ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']:
+    filtros[col] = st.sidebar.multiselect(f"Filtrar {col.title()}", options=df_raw[col].unique())
+
+if st.sidebar.button("Limpar Filtros"):
     st.rerun()
 
 # --- CORPO PRINCIPAL ---
 if senha_view == SENHA_MESTRE:
     st.title("🔑 Painel de Credenciais")
-    
     df_raw = load_data()
-    
-    # Configuração das Colunas
+
+    # Aplicando Filtros no DataFrame
+    df_filtrado = df_raw.copy()
+    for col, values in filtros.items():
+        if values:
+            df_filtrado = df_filtrado[df_filtrado[col].isin(values)]
+
+    # Configuração da Tabela (Link Clicável)    
     config_colunas = {
-        "id": None, # Esconde o ID
-        "acesso": st.column_config.LinkColumn("Link de Acesso"),
-        "horario_alt": st.column_config.DatetimeColumn("Última Alteração", disabled=True),
-        "alterado_por": st.column_config.TextColumn("Quem Alterou", disabled=True)
+        "id": None,
+        "Link": st.column_config.LinkColumn("Link de Acesso"),
+        "Horario da Alt.": st.column_config.DatetimeColumn("Última Alteração", disabled=True),
+        "Alterado por": st.column_config.TextColumn("Quem Alterou", disabled=True)
     }
 
-    # Lógica de Máscara de Senha
-    df_exibicao = df_raw.copy()
+    df_exibicao = df_filtrado.copy()
     if not mostrar_senhas:
-        df_exibicao['senha'] = "********"
-        # Se as senhas estão ocultas, desabilitamos a edição da coluna de senha para evitar erros
-        config_colunas["senha"] = st.column_config.TextColumn("Senha (Protegida)", disabled=True)
+        df_exibicao['Senha'] = "********"
+        config_colunas["Senha"] = st.column_config.TextColumn("Senha (Protegida)", disabled=True)
     else:
-        config_colunas["senha"] = st.column_config.TextColumn("Senha (Editável)")
+        config_colunas["Senha"] = st.column_config.TextColumn("Senha (Editável)")
+        
+    
 
-    # TABELA EDITÁVEL
-    st.write("Dica: Você pode editar as células diretamente abaixo e clicar em salvar.")
     df_editado = st.data_editor(
         df_exibicao,
         column_config=config_colunas,
         hide_index=True,
         use_container_width=True,
-        num_rows="dynamic" # Permite adicionar/remover linhas
+        num_rows="dynamic"
+    )
+    # 1. Criar um buffer na memória
+    buffer = io.BytesIO()
+
+    # 2. Salvar o Excel dentro desse buffer
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df_raw.to_excel(writer, index=False, sheet_name='Acessos')
+
+    # 3. Preparar o botão de download com os dados do buffer
+    st.download_button(
+        label="📥 Baixar Backup XLSX",
+        data=buffer.getvalue(),
+        file_name='backup_acessos.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
-    col1, col2 = st.columns([1, 5])
-    with col1:
-        if st.button("💾 Salvar Alterações", type="primary"):
-            salvar_edicoes_diretas(df_editado, df_raw)
-    with col2:
-        # Download
-        csv = df_raw.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Backup CSV", data=csv, file_name='backup_acessos.csv')
+    # --- PARTE FINAL DO CÓDIGO ---
+    if st.button("💾 Salvar Alterações", type="primary"):
+        # Chamamos a função passando o que está na tela (editado) 
+        # e o que veio do banco (original) para comparação
+        salvar_edicoes_diretas(df_editado, df_raw)
+        st.success("Alterações salvas com sucesso!")
+
+    st.divider()
+    with st.expander("📜 Histórico de Alterações (Logs)"):
+        # 1. Busca os logs diretamente do banco
+        df_logs = conn.query("SELECT * FROM logs_alteracao ORDER BY data_hora DESC", ttl=0)
+    
+    if not df_logs.empty:
+        # 2. Exibe a tabela de logs (apenas leitura)
+        st.dataframe(
+            df_logs, 
+            use_container_width=True,
+            column_config={
+                "id": None, # Esconde o ID do log
+                "data_hora": st.column_config.DatetimeColumn("Data/Hora"),
+                "usuario_executor": "Usuário",
+                "evento": "Ação",
+                "detalhes": "Detalhes da Alteração"
+            }
+        )
+        
+        # 3. Botão para baixar os logs em Excel
+        buffer_logs = io.BytesIO()
+        with pd.ExcelWriter(buffer_logs, engine='xlsxwriter') as writer:
+            df_logs.to_excel(writer, index=False, sheet_name='Logs')
+            
+        st.download_button(
+            label="📥 Baixar Histórico Completo (XLSX)",
+            data=buffer_logs.getvalue(),
+            file_name=f'logs_sistema_{datetime.now().strftime("%d-%m-%Y")}.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    else:
+        st.info("Ainda não há registros no histórico.")
 
 else:
-    st.warning("Aguardando autenticação na barra lateral...")
+    st.warning("Insira a senha master.")
