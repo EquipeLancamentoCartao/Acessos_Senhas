@@ -52,6 +52,7 @@ SENHA_MESTRE = "282723" # Use st.secrets em produção
 
 mostrar_senhas = st.sidebar.toggle("👁️ Revelar Senhas", value=False)
 
+
 st.sidebar.divider()
 st.sidebar.subheader("Upload de Planilha")
 uploaded_file = st.sidebar.file_uploader("Substituir base de dados", type=['csv', 'xlsx'])
