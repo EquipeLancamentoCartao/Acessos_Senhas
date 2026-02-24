@@ -2,28 +2,21 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import text
-import urllib.parse
 import io
+# urllib.parse não é mais necessário se usarmos a conexão automática
+
 st.set_page_config(page_title="Gestor Pro TiDB", layout="wide")
 
-# Busca a senha do banco nos secrets
+# --- CONEXÃO AUTOMÁTICA ---
+# O Streamlit lê o [connections.tidb] do seu Secrets automaticamente
 try:
-    senha_pura = st.secrets["connections"]["tidb"]["password"]
-except KeyError:
-    st.error("Erro: Senha do banco não encontrada no secrets.toml")
+    conn = st.connection("tidb", type="sql")
+except Exception as e:
+    st.error(f"Erro ao conectar ao banco: {e}")
     st.stop()
 
-senha_escrita = urllib.parse.quote_plus(senha_pura)
-
-# Conexão usando a senha recuperada
-conn = st.connection(
-    "tidb",
-    type="sql",
-    url=f"mysql+pymysql://3ubwWEYSthHphv7.root:{senha_escrita}@gateway01.eu-central-1.prod.aws.tidbcloud.com:4000/test",
-    connect_args={"ssl": {"fake_flag_to_enable_tls": True}}
-)
-
-# Busca a Senha Mestre do painel nos secrets
+# --- SENHA MESTRE ---
+# Busca do bloco [admin] que você configurou
 SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 
 # --- USUÁRIO ---
