@@ -182,8 +182,11 @@ if senha_view == SENHA_MESTRE:
     buffer = io.BytesIO()
 
     # 2. Salvar o Excel dentro desse buffer
+    df_sem_id = df_raw.copy()
+    if 'id' in df_sem_id.columns:
+        df_sem_id = df_sem_id.drop(columns=['id'])
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_raw.to_excel(writer, index=False, sheet_name='Acessos')
+        df_sem_id.to_excel(writer, index=False, sheet_name='Acessos')
 
     # 3. Preparar o botão de download com os dados do buffer
     st.download_button(
