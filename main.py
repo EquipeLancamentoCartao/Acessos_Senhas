@@ -157,9 +157,9 @@ if senha_view == SENHA_MESTRE:
     # Configuração da Tabela (Link Clicável)    
     config_colunas = {
         "id": None,
-        "Link": st.column_config.LinkColumn("Link de Acesso"),
-        "Horario da Alt.": st.column_config.DatetimeColumn("Última Alteração", disabled=True),
-        "Alterado por": st.column_config.TextColumn("Quem Alterou", disabled=True)
+        "Link": st.column_config.LinkColumn("Link"),
+        "Horario da Alt.": st.column_config.DatetimeColumn("Horario da Alt.", disabled=True),
+        "Alterado por": st.column_config.TextColumn("Alterado por", disabled=True)
     }
 
     df_exibicao = df_filtrado.copy()
