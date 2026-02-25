@@ -205,33 +205,33 @@ if senha_view == SENHA_MESTRE:
         # 1. Busca os logs diretamente do banco
         df_logs = conn.query("SELECT * FROM logs_alteracao ORDER BY data_hora DESC", ttl=0)
     
-    if not df_logs.empty:
-        # 2. Exibe a tabela de logs (apenas leitura)
-        st.dataframe(
-            df_logs, 
-            use_container_width=True,
-            column_config={
-                "id": None, # Esconde o ID do log
-                "data_hora": st.column_config.DatetimeColumn("Data/Hora"),
-                "usuario_executor": "Usuário",
-                "evento": "Ação",
-                "detalhes": "Detalhes da Alteração"
-            }
-        )
-        
-        # 3. Botão para baixar os logs em Excel
-        buffer_logs = io.BytesIO()
-        with pd.ExcelWriter(buffer_logs, engine='xlsxwriter') as writer:
-            df_logs.to_excel(writer, index=False, sheet_name='Logs')
+        if not df_logs.empty:
+            # 2. Exibe a tabela de logs (apenas leitura)
+            st.dataframe(
+                df_logs, 
+                use_container_width=True,
+                column_config={
+                    "id": None, # Esconde o ID do log
+                    "data_hora": st.column_config.DatetimeColumn("Data/Hora"),
+                    "usuario_executor": "Usuário",
+                    "evento": "Ação",
+                    "detalhes": "Detalhes da Alteração"
+                }
+            )
             
-        st.download_button(
-            label="📥 Baixar Histórico Completo (XLSX)",
-            data=buffer_logs.getvalue(),
-            file_name=f'HISTÓRICO DE LOGS DA PLATAFORMA DE SENHAS {datetime.now().strftime("%d-%m-%Y")}.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-    else:
-        st.info("Ainda não há registros no histórico.")
+            # 3. Botão para baixar os logs em Excel
+            buffer_logs = io.BytesIO()
+            with pd.ExcelWriter(buffer_logs, engine='xlsxwriter') as writer:
+                df_logs.to_excel(writer, index=False, sheet_name='Logs')
+                
+            st.download_button(
+                label="📥 Baixar Histórico Completo (XLSX)",
+                data=buffer_logs.getvalue(),
+                file_name=f'HISTÓRICO DE LOGS DA PLATAFORMA DE SENHAS {datetime.now().strftime("%d-%m-%Y")}.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+        else:
+            st.info("Ainda não há registros no histórico.")
 
 else:
     st.warning("Insira a senha master.")
