@@ -1,5 +1,5 @@
 import streamlit as st
-# TESTE DE DIAGNÓSTICO
+import pytz
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import text
@@ -35,6 +35,10 @@ def load_data():
     # df.columns = [c.lower() for c in df.columns]
     return df
 
+def get_hora_brasilia():
+    fuso = pytz.timezone('America/Sao_Paulo')
+    return datetime.now(fuso).strftime('%Y-%m-%d %H:%M:%S')
+
 def registrar_log(evento, detalhes):
     with conn.session as session:
         session.execute(
@@ -49,7 +53,7 @@ def save_upload(df_upload, user):
     
     with conn.session as session:
         session.execute(text("TRUNCATE TABLE acessos;"))
-        agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        agora = get_hora_brasilia()
         
         for _, row in df_upload.iterrows():
             query = text("""
@@ -174,7 +178,7 @@ if senha_view == SENHA_MESTRE:
     st.download_button(
         label="📥 Baixar Backup XLSX",
         data=buffer.getvalue(),
-        file_name='backup_acessos.xlsx',
+        file_name='PLANILHA DE ACESSOS.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
@@ -212,7 +216,7 @@ if senha_view == SENHA_MESTRE:
         st.download_button(
             label="📥 Baixar Histórico Completo (XLSX)",
             data=buffer_logs.getvalue(),
-            file_name=f'logs_sistema_{datetime.now().strftime("%d-%m-%Y")}.xlsx',
+            file_name=f'HISTÓRICO DE LOGS DA PLATAFORMA DE SENHAS {datetime.now().strftime("%d-%m-%Y")}.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     else:
