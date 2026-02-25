@@ -40,10 +40,21 @@ def get_hora_brasilia():
     return datetime.now(fuso).strftime('%Y-%m-%d %H:%M:%S')
 
 def registrar_log(evento, detalhes):
+    # Obtém a hora de Brasília manualmente
+    agora_brasilia = get_hora_brasilia()
+    
     with conn.session as session:
         session.execute(
-            text("INSERT INTO logs_alteracao (evento, usuario_executor, detalhes) VALUES (:ev, :us, :det)"),
-            {"ev": evento, "us": usuario_atual, "det": detalhes}
+            text("""
+                INSERT INTO logs_alteracao (data_hora, evento, usuario_executor, detalhes) 
+                VALUES (:dt, :ev, :us, :det)
+            """),
+            {
+                "dt": agora_brasilia, # Enviamos a data correta aqui
+                "ev": evento, 
+                "us": usuario_atual, 
+                "det": detalhes
+            }
         )
         session.commit()
 
@@ -72,7 +83,7 @@ def save_upload(df_upload, user):
 
 def salvar_edicoes_diretas(df_editado, df_original):
     with conn.session as session:
-        agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        agora = get_hora_brasilia()
         for i, row in df_editado.iterrows():
             if not row.equals(df_original.iloc[i]):
                 # SEGURANÇA: Se a senha for asteriscos, não atualizamos o campo senha no banco!
