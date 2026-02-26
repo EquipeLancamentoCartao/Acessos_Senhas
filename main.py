@@ -81,38 +81,58 @@ def save_upload(df_upload, user):
     registrar_log("Upload Geral", f"Planilha com {len(df_upload)} linhas.")
     st.cache_data.clear()
 
-def salvar_edicoes_diretas(df_editado, df_original):
+def salvar_edicoes_diretas(df_editado, df_original, df_filtrado_antes_da_edicao):
     with conn.session as session:
+        # 1. LÓGICA DE DELEÇÃO SEGURA (Corrigido o nome da tabela)
+        ids_que_estavam_na_tela = set(df_filtrado_antes_da_edicao['id'].tolist())
+        ids_que_ficaram_apos_edicao = set(df_editado['id'].dropna().tolist())
+        ids_para_deletar = ids_que_estavam_na_tela - ids_que_ficaram_apos_edicao
+
+        if ids_para_deletar:
+            format_ids = ", ".join(map(str, ids_para_deletar))
+            # Ajustado para a tabela 'acessos'
+            session.execute(text(f"DELETE FROM acessos WHERE id IN ({format_ids})"))
+        
+        # 2. LÓGICA DE UPDATE
         agora = get_hora_brasilia()
-        for i, row in df_editado.iterrows():
-            if not row.equals(df_original.iloc[i]):
-                # SEGURANÇA: Se a senha for asteriscos, não atualizamos o campo senha no banco!
-                if row['Senha'] == "********":
-                    query = text("""
-                        UPDATE acessos SET 
-                        Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
-                        `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
-                        WHERE id=:id
-                    """)
-                    params = {
-                        "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
-                        "link": row['Link'], "ace": row['Acesso'], "alt": usuario_atual, 
-                        "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
-                    }
-                else:
-                    query = text("""
-                        UPDATE acessos SET 
-                        Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
-                        Senha=:sen, `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
-                        WHERE id=:id
-                    """)
-                    params = {
-                        "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
-                        "link": row['Link'], "ace": row['Acesso'], "sen": row['Senha'], 
-                        "alt": usuario_atual, "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
-                    }
-                session.execute(query, params)
+        for _, row in df_editado.iterrows():
+            # Buscamos a linha original exata comparando o ID
+            # Isso evita o erro de comparar linhas diferentes por causa do filtro
+            linha_original_exata = df_original[df_original['id'] == row['id']]
+            
+            if not linha_original_exata.empty:
+                # Comparamos a linha da tela com a linha real do banco
+                if not row.equals(linha_original_exata.iloc[0]):
+                    
+                    # Se a senha for asteriscos, usamos a query sem o campo Senha
+                    if row['Senha'] == "********":
+                        query = text("""
+                            UPDATE acessos SET 
+                            Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
+                            `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
+                            WHERE id=:id
+                        """)
+                        params = {
+                            "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
+                            "link": row['Link'], "ace": row['Acesso'], "alt": usuario_atual, 
+                            "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
+                        }
+                    else:
+                        query = text("""
+                            UPDATE acessos SET 
+                            Portal=:p, Convenio=:c, Consignataria=:con, Link=:link, Acesso=:ace, 
+                            Senha=:sen, `Alterado por`=:alt, `Horario da Alt.`=:hor, `Dono do Acesso`=:dono
+                            WHERE id=:id
+                        """)
+                        params = {
+                            "p": row['Portal'], "c": row['Convenio'], "con": row['Consignataria'],
+                            "link": row['Link'], "ace": row['Acesso'], "sen": row['Senha'], 
+                            "alt": usuario_atual, "hor": agora, "dono": row['Dono do Acesso'], "id": row['id']
+                        }
+                    session.execute(query, params)
+        
         session.commit()
+    
     registrar_log("Edição Direta", "Alteração manual via tabela.")
     st.cache_data.clear()
     st.rerun()
@@ -200,7 +220,7 @@ if senha_view == SENHA_MESTRE:
     if st.button("💾 Salvar Alterações", type="primary"):
         # Chamamos a função passando o que está na tela (editado) 
         # e o que veio do banco (original) para comparação
-        salvar_edicoes_diretas(df_editado, df_raw)
+        salvar_edicoes_diretas(df_editado, df_raw, df_exibicao)
         st.success("Alterações salvas com sucesso!")
 
     st.divider()
