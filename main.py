@@ -164,29 +164,25 @@ st.sidebar.subheader("Filtros")
 df_raw = load_data()
 
 # Criando dicionário para armazenar filtros
-filtros = {}
-colunas_para_filtrar = ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']
+def limpar_todos_os_filtros():
+    colunas = ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']
+    for col in colunas:
+        chave = f"filter_{col}"
+        if chave in st.session_state:
+            st.session_state[chave] = []
 
-for col in colunas_para_filtrar:
-    # Criamos uma chave única, ex: 'filter_Portal'
-    chave_filtro = f"filter_{col}" 
-    
+# 2. No botão da sidebar, use o parâmetro on_click
+st.sidebar.button("Limpar Filtros", on_click=limpar_todos_os_filtros)
+
+# 3. Depois vem o seu loop de filtros normal
+filtros = {}
+for col in ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']:
+    chave_filtro = f"filter_{col}"
     filtros[col] = st.sidebar.multiselect(
         f"Filtrar {col.title()}", 
         options=df_raw[col].unique(),
-        key=chave_filtro  # <--- IMPORTANTE: Definir a key
+        key=chave_filtro
     )
-
-# 2. Botão de Limpar (Agora ele sabe o que limpar)
-if st.sidebar.button("Limpar Filtros"):
-    for col in colunas_para_filtrar:
-        chave_filtro = f"filter_{col}"
-        if chave_filtro in st.session_state:
-            # Para multiselect, o valor vazio é uma lista vazia []
-            st.session_state[chave_filtro] = []
-    
-    # Recarrega a página com as chaves limpas
-    st.rerun()
 
 # --- CORPO PRINCIPAL ---
 if senha_view == SENHA_MESTRE:
