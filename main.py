@@ -217,7 +217,8 @@ if senha_view == SENHA_MESTRE:
         column_config=config_colunas,
         hide_index=True,
         use_container_width=True,
-        num_rows="dynamic"
+        num_rows="dynamic",
+        disabled=not mostrar_senhas
     )
     # 1. Criar um buffer na memória
     buffer = io.BytesIO()
