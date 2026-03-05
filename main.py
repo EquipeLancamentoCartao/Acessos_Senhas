@@ -29,6 +29,7 @@ except:
     usuario_atual = "Admin_Local"
 
 # --- FUNÇÕES ---
+@st.cache_data(ttl=600)
 def load_data():
     # Carrega e garante que as colunas do DataFrame sejam sempre minúsculas
     df = conn.query("SELECT * FROM acessos", ttl=0)
