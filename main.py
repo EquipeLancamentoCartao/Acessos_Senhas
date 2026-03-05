@@ -24,24 +24,24 @@ SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 
 # --- USUÁRIO ---
 try:
-    # Se st.user.email existir e não for None, usa ele. Caso contrário, Admin_Local.
-    usuario_atual = st.user.email if st.user.email else "Admin_Local"
-except Exception:
+    # O .get("email") funciona se st.user se comportar como dicionário
+    # O getattr evita o erro de "AttributeError" se o atributo não existir
+    usuario_atual = st.user.get("email") or "Admin_Local"
+except AttributeError:
+    # Fallback para versões onde st.user não tem .get()
     usuario_atual = "Admin_Local"
 
-# --- ÁREA DE DEBUG (Remova após os testes) ---
+# --- ÁREA DE DEBUG ATUALIZADA ---
 with st.sidebar.expander("🛠️ Debug de Usuário", expanded=False):
-    st.write(f"Objeto st.user: {st.user}")
-    st.write(f"E-mail detectado: `{st.user.email}`")
-    st.write(f"Logado no Cloud: {'Sim' if st.user.email else 'Não'}")
+    st.write("Dados disponíveis em st.user:")
+    # Isso vai listar tudo que o Streamlit está entregando (email, etc)
+    st.write(dict(st.user)) 
     
-    # Teste de atribuição
-    try:
-        usuario_teste = st.user.email if st.user.email else "Admin_Local"
-        st.info(f"Variável interna: {usuario_teste}")
-    except Exception as e:
-        st.error(f"Erro no st.user: {e}")
-
+    # Verifica se a chave 'email' existe no dicionário
+    if "email" in st.user:
+        st.success(f"E-mail encontrado: {st.user['email']}")
+    else:
+        st.warning("A chave 'email' não foi encontrada em st.user")
 # --- FUNÇÕES ---
 @st.cache_data(ttl=600)
 def load_data():
