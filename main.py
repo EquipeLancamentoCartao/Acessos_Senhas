@@ -165,10 +165,27 @@ df_raw = load_data()
 
 # Criando dicionário para armazenar filtros
 filtros = {}
-for col in ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']:
-    filtros[col] = st.sidebar.multiselect(f"Filtrar {col.title()}", options=df_raw[col].unique())
+colunas_para_filtrar = ['Portal', 'Convenio', 'Consignataria', 'Dono do Acesso']
 
+for col in colunas_para_filtrar:
+    # Criamos uma chave única, ex: 'filter_Portal'
+    chave_filtro = f"filter_{col}" 
+    
+    filtros[col] = st.sidebar.multiselect(
+        f"Filtrar {col.title()}", 
+        options=df_raw[col].unique(),
+        key=chave_filtro  # <--- IMPORTANTE: Definir a key
+    )
+
+# 2. Botão de Limpar (Agora ele sabe o que limpar)
 if st.sidebar.button("Limpar Filtros"):
+    for col in colunas_para_filtrar:
+        chave_filtro = f"filter_{col}"
+        if chave_filtro in st.session_state:
+            # Para multiselect, o valor vazio é uma lista vazia []
+            st.session_state[chave_filtro] = []
+    
+    # Recarrega a página com as chaves limpas
     st.rerun()
 
 # --- CORPO PRINCIPAL ---
