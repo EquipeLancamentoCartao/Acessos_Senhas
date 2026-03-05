@@ -25,9 +25,21 @@ SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 # --- USUÁRIO ---
 try:
     usuario_atual = st.user.get("email", "Admin_Local")
-except Exception as e:
+except:
     usuario_atual = "Admin_Local"
-    print(f'DEBUG de usuario_atual: {e}')
+
+# --- ÁREA DE DEBUG (Remova após os testes) ---
+with st.sidebar.expander("🛠️ Debug de Usuário", expanded=False):
+    st.write(f"Objeto st.user: {st.user}")
+    st.write(f"E-mail detectado: `{st.user.email}`")
+    st.write(f"Logado no Cloud: {'Sim' if st.user.email else 'Não'}")
+    
+    # Teste de atribuição
+    try:
+        usuario_teste = st.user.email if st.user.email else "Admin_Local"
+        st.info(f"Variável interna: {usuario_teste}")
+    except Exception as e:
+        st.error(f"Erro no st.user: {e}")
 
 # --- FUNÇÕES ---
 @st.cache_data(ttl=600)
