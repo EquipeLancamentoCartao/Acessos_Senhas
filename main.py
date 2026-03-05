@@ -25,8 +25,9 @@ SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 # --- USUÁRIO ---
 try:
     usuario_atual = st.user.get("email", "Admin_Local")
-except:
+except Exception as e:
     usuario_atual = "Admin_Local"
+    print(f'DEBUG de usuario_atual: {e}')
 
 # --- FUNÇÕES ---
 @st.cache_data(ttl=600)
