@@ -24,8 +24,9 @@ SENHA_MESTRE = st.secrets["admin"]["SENHA_MESTRE"]
 
 # --- USUÁRIO ---
 try:
-    usuario_atual = st.user.get("email", "Admin_Local")
-except:
+    # Se st.user.email existir e não for None, usa ele. Caso contrário, Admin_Local.
+    usuario_atual = st.user.email if st.user.email else "Admin_Local"
+except Exception:
     usuario_atual = "Admin_Local"
 
 # --- ÁREA DE DEBUG (Remova após os testes) ---
