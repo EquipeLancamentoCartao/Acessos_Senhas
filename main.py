@@ -31,17 +31,6 @@ except AttributeError:
     # Fallback para versões onde st.user não tem .get()
     usuario_atual = "Admin_Local"
 
-# --- ÁREA DE DEBUG ATUALIZADA ---
-with st.sidebar.expander("🛠️ Debug de Usuário", expanded=False):
-    st.write("Dados disponíveis em st.user:")
-    # Isso vai listar tudo que o Streamlit está entregando (email, etc)
-    st.write(dict(st.user)) 
-    
-    # Verifica se a chave 'email' existe no dicionário
-    if "email" in st.user:
-        st.success(f"E-mail encontrado: {st.user['email']}")
-    else:
-        st.warning("A chave 'email' não foi encontrada em st.user")
 # --- FUNÇÕES ---
 @st.cache_data(ttl=600)
 def load_data():
